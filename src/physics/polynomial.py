@@ -43,20 +43,20 @@ class Config:
     r_max: float = 55.0
     # pretrain
     pretrain_epochs: int = 50000
+    pretrain_loss_fn: callable = Loss(Potential(c), is_pretrain=True)
     pretrain_optimizer: callable = partial(torch.optim.Adam, lr=1e-2)
     pretrain_scheduler: callable = partial(torch.optim.lr_scheduler.ReduceLROnPlateau, 
                                            mode='min', 
                                            factor=0.5,
                                            patience=100,
                                            threshold=1e-6)
-    pretrain_loss_fn: callable = Loss(Potential(c), is_pretrain=True)
     # finetune
     finetune_epochs: int = 200000
+    finetune_loss_fn: callable = Loss(Potential(c), is_pretrain=False)
     finetune_optimizer: callable = partial(torch.optim.Adam, lr=1e-2)
     finetune_scheduler: callable = partial(torch.optim.lr_scheduler.ReduceLROnPlateau, 
                                            mode='min', 
                                            factor=0.1,
                                            patience=100,
                                            threshold=1e-6)
-    finetune_loss_fn: callable = Loss(Potential(c), is_pretrain=False)
 
