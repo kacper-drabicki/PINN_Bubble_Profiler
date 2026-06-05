@@ -1,12 +1,23 @@
+import argparse
 import torch
 from src.model import Bouncer
 from train import pretrain, finetune
-from src.physics.polynomial import Config
+
+from src.physics import polynomial, singlet
+
+EXPERIMENTS = {
+    "singlet": singlet.Config,
+    "polynomial": polynomial.Config,
+}
 
 def main():
-    config = Config()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--exp", choices=EXPERIMENTS.keys())
+    args = parser.parse_args()
     
-    model = Bouncer().to(config.device)
+    config = EXPERIMENTS[args.exp]()
+    
+    model = Bouncer(output_dim=config.output_dim).to(config.device)
 
     print("=== PRETRAIN ===")
     pretrain(model, config)
