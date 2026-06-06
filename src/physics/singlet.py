@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from dataclasses import dataclass
 from functools import partial
 from math import sqrt
@@ -31,29 +32,36 @@ class Potential:
         v2_tc = vEW**2 - (self.c_h / lambda_h) * (Tc**2)
         self.mu_2_s = -v2_tc * sqrt(lambda_h * lambda_s) - self.c_s * (Tc**2)
 
-    def v(self, T: float) -> float:
+    def v(self, T: float):
         return sqrt(vEW**2 - (self.c_h / lambda_h) * (T**2))
 
-    def w(self, T: float) -> float:
+    def w(self, T: float):
         return sqrt(-(self.mu_2_s + self.c_s * (T**2)) / self.lambda_s)
 
-    def V(self, X: torch.Tensor, T: float) -> torch.Tensor:
-        h, s = X[..., 0], X[..., 1]
+    def V(self, X, T: float):
+        h, s = X[:, 0:1], X[:, 1:2]
         term_h = -0.5 * self.mu_2_h * h**2 + 0.25 * lambda_h * h**4
         term_s = 0.5 * self.mu_2_s * s**2 + 0.25 * self.lambda_s * s**4
         term_mixed = 0.25 * self.lambda_m * (s * h) ** 2
         term_thermal = 0.5 * (self.c_h * h**2 + self.c_s * s**2) * T**2
         return term_h + term_s + term_mixed + term_thermal
 
-    def dV(self, X: torch.Tensor, T: float) -> torch.Tensor:
-        h, s = X[..., 0], X[..., 1]
+    def dV(self, X, T: float):
+        h, s = X[:, 0:1], X[:, 1:2]
         t2 = (T**2) / (vEW**2)
         mu_h = self.mu_2_h / (vEW**2)
         mu_s = self.mu_2_s / (vEW**2)
 
         dv_dh = -mu_h * h + lambda_h * h**3 + 0.5 * self.lambda_m * s**2 * h + self.c_h * h * t2
         dv_ds = mu_s * s + self.lambda_s * s**3 + 0.5 * self.lambda_m * h**2 * s + self.c_s * s * t2
-        return torch.stack([dv_dh, dv_ds], dim=-1)
+        
+        # check if X is torch.tensor or np.array so that we can return the same type
+        if isinstance(X, torch.Tensor):
+            return torch.concat((dv_dh, dv_ds), dim=1)
+        elif isinstance(X, np.ndarray):
+            return np.concatenate((dv_dh, dv_ds), axis=1)
+        else:
+            raise ValueError("Unsupported type for X. Expected torch.Tensor or np.ndarray.")
     
 class Loss:
     
@@ -72,9 +80,9 @@ class Loss:
         s_rr = torch.autograd.grad(s_r, r, torch.ones_like(s_r), create_graph=True)[0]
 
         # Loss fizyczny 
-        dV_vals = self.potential.dV(X, self.T)
-        loss_physics_h = torch.mean((h_rr + 2 / r * h_r - dV_vals[:,0:1])**2)
-        loss_physics_s = torch.mean((s_rr + 2 / r * s_r - dV_vals[:,1:2])**2)
+        dV_values = self.potential.dV(X, self.T)
+        loss_physics_h = torch.mean((h_rr + 2 / r * h_r - dV_values[:,0:1])**2)
+        loss_physics_s = torch.mean((s_rr + 2 / r * s_r - dV_values[:,1:2])**2)
    
         h_limit = h[-1:]
         s_limit = s[-1:]
